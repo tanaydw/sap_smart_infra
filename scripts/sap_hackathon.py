@@ -103,7 +103,7 @@ def transform_train_space(df, s):
     return df_1, df_quart, df_1_quart 
 
 
-def transform_test_space(df, df_quart, df_grav, s):
+def transform_test_space(df, df_quart, df_grav, s, plot_space=False):
     df_1 = df[['_t']].copy()
     alpha, beta, gamma = np.arccos(df_quart / np.linalg.norm(df_quart))
     norms = np.array([df_quart[0]*np.sin(alpha), df_quart[1]*np.sin(beta), df_quart[2]*np.sin(gamma)])
@@ -119,7 +119,8 @@ def transform_test_space(df, df_quart, df_grav, s):
         df_1['x_' + str(s)] = df['ch1']*np.sin(alpha) - df['ch3']*np.sin(gamma)*np.cos(phi[0])
         df_1['y_' + str(s)] = df['ch2']*np.sin(beta) - df['ch3']*np.sin(gamma)*np.cos(phi[1])
     df_1['z_' + str(s)] = (df['ch1']*np.cos(alpha)) + (df['ch2']*np.cos(beta)) + (df['ch3']*np.cos(gamma))
-    df_1['z_' + str(s)] = df_1['z_' + str(s)] - df_grav
+    if not plot_space:
+        df_1['z_' + str(s)] = df_1['z_' + str(s)] - df_grav
     return df_1 
 
 
@@ -148,11 +149,67 @@ def read_train_data(sensor_name, year, month, day, hours, s):
     return transform_train_space(df, s+1)
 
 
-def read_test_data(sensor_name, year, month, day, hours, s):
+color = ['blue', 'red', 'green']
+label = ['channel 1', 'channel 2', 'channel 3']
+
+def plot_before_transformation(df, s):
+    fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(16, 4))
+    fig.suptitle('Before Transformation - Visualization of Data for Sensor ' + sensors[s])
+    for i in range(3):
+        ax[0].plot(df['ch' + str(i+1)].to_numpy(), color=color[i], label=label[i])
+        ax[i+1].plot(df['ch' + str(i+1)].to_numpy(), color=color[i], label=label[i])
+        ax[i+1].set_xlabel('Time in seconds')
+        ax[i+1].set_ylabel('Acceleration in m/s^2')
+        ax[i+1].legend()
+    ax[0].set_xlabel('Time in seconds')
+    ax[0].set_ylabel('Acceleration in m/s^2')
+    ax[0].legend()
+    plt.show()
+
+
+def plot_after_reconstruction(df, s):
+    fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(16, 4))
+    fig.suptitle('After Reconstruction - Visualization of Data for Sensor ' + sensors[s])
+    for i in range(3):
+        ax[0].plot(df['ch' + str(i+1)].to_numpy(), color=color[i], label=label[i])
+        ax[i+1].plot(df['ch' + str(i+1)].to_numpy(), color=color[i], label=label[i])
+        ax[i+1].set_xlabel('Time in seconds')
+        ax[i+1].set_ylabel('Acceleration in m/s^2')
+        ax[i+1].legend()
+    ax[0].set_xlabel('Time in seconds')
+    ax[0].set_ylabel('Acceleration in m/s^2')
+    ax[0].legend()
+    plt.show()
+
+
+def plot_transformed_axis(df, sensor_idx):
+    axis = ['x_' + str(sensor_idx + 1) , 'y_' + str(sensor_idx + 1), 'z_' + str(sensor_idx + 1)]
+    fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(16, 4))
+    fig.suptitle('After Transformation - Visualization of Data for Sensor ' + sensors[sensor_idx])
+    for i in range(3):
+        ax[0].plot(df[axis[i]].to_numpy(), color=color[i], label=label[i])
+        ax[i+1].plot(df[axis[i]].to_numpy(), color=color[i], label=label[i])
+        ax[i+1].set_xlabel('Time in seconds')
+        ax[i+1].set_ylabel('Acceleration in m/s^2')
+        ax[i+1].legend()
+    ax[0].set_xlabel('Time in seconds')
+    ax[0].set_ylabel('Acceleration in m/s^2')
+    ax[0].legend()
+    plt.show()
+
+
+def read_test_data(sensor_name, year, month, day, hours, s, print_graph=False):
     df = read_file(sensor_name, year, month, day, hours)
     df.drop(['date', 'hour', 'day', 'month'], inplace=True, axis=1)
     df.drop_duplicates(ignore_index=True, inplace=True)
-    return transform_test_space(df, df_quart[s], df_grav[s], s+1)
+    if print_graph:
+        plot_before_transformation(df, s)
+        tr_data = transform_test_space(df, df_quart[s], df_grav[s], s+1, True)
+        plot_transformed_axis(tr_data, s)
+        tr_data['z_' + str(s+1)] = tr_data['z_' + str(s+1)] - df_grav[s]
+        return tr_data
+    else:
+        return transform_test_space(df, df_quart[s], df_grav[s], s+1)
 
 
 def estimate_common_time(df_list):
@@ -164,4 +221,6 @@ def estimate_common_time(df_list):
             common_time = common_time.intersection(set(df_list[i]['_t'].tolist()))
     common_time = list(common_time)
     return common_time
+
+
 
